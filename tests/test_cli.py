@@ -1,7 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Amir Farhadi
 """Unit tests for winvda command-line interface parsing."""
 
 import argparse
+
 import pytest
+
 from winvda.__main__ import _resolve_hwnd, main
 from winvda.errors import VdaError
 

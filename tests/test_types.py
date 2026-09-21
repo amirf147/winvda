@@ -1,7 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Amir Farhadi
 """Unit tests for winvda immutable value objects."""
 
 from uuid import UUID
+
 import pytest
+
 from winvda.types import VirtualDesktop, WindowView
 
 
@@ -35,6 +39,11 @@ def test_window_view_xaml_island_detection():
 
     # XAML Island hosted window
     sub_aumid = "Microsoft.WindowsTerminal_8wekyb3d8bbwe!App~Wh~w00620A28"
-    xaml_win = WindowView(hwnd=0x5678, title="Terminal", app_id=sub_aumid, base_app_id="Microsoft.WindowsTerminal_8wekyb3d8bbwe!App")
+    xaml_win = WindowView(
+        hwnd=0x5678,
+        title="Terminal",
+        app_id=sub_aumid,
+        base_app_id="Microsoft.WindowsTerminal_8wekyb3d8bbwe!App",
+    )
     assert xaml_win.is_xaml_island
     assert xaml_win.base_app_id == "Microsoft.WindowsTerminal_8wekyb3d8bbwe!App"

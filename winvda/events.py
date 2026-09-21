@@ -1,36 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Amir Farhadi
 """Decoupled asynchronous event sink for Windows Virtual Desktop notifications."""
 
-import ctypes
-from ctypes import byref, c_long, c_ulong, c_void_p, wintypes
 import queue
 import threading
 from typing import Callable, Optional
 from uuid import UUID
 
-from winvda._win32 import (
-    CLSCTX_LOCAL_SERVER,
-    COINIT_MULTITHREADED,
-    GUID,
-    HRESULT,
-    call_vtable,
-    check_hresult,
-    guid_to_py_uuid,
-    ole32,
-    safe_release,
-)
-from winvda._vtables import (
-    CLSID_ImmersiveShell,
-    IID_IServiceProvider,
-    IID_IVirtualDesktopNotification,
-    IID_IVirtualDesktopNotificationService,
-    get_active_build_config,
-)
-from winvda.types import VirtualDesktop
+from winvda._win32 import COINIT_MULTITHREADED, ole32
 
 
 class VirtualDesktopEvent:
     """Base event payload emitted by the notification sink."""
-    def __init__(self, event_type: str, old_desktop_id: Optional[UUID] = None, new_desktop_id: Optional[UUID] = None) -> None:
+
+    def __init__(
+        self,
+        event_type: str,
+        old_desktop_id: Optional[UUID] = None,
+        new_desktop_id: Optional[UUID] = None,
+    ) -> None:
         self.event_type = event_type
         self.old_desktop_id = old_desktop_id
         self.new_desktop_id = new_desktop_id

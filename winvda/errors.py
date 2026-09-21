@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Amir Farhadi
 """Exception taxonomy for winvda."""
 
 from typing import Optional
@@ -5,6 +7,7 @@ from typing import Optional
 
 class VdaError(Exception):
     """Base exception for all winvda operations."""
+
     pass
 
 
@@ -24,19 +27,23 @@ class VdaComError(VdaError):
 
 class ShellUnavailableError(VdaComError):
     """Raised when explorer.exe is unavailable, restarting, or the ALPC endpoint closed."""
+
     pass
 
 
 class DesktopNotFoundError(VdaError):
     """Raised when a requested virtual desktop cannot be located by ID or index."""
+
     pass
 
 
 class WindowNotFoundError(VdaError):
     """Raised when an HWND is invalid, destroyed, or inaccessible."""
+
     pass
 
 
 class UnsupportedBuildError(VdaError):
     """Raised when the active Windows build has no mapped COM vtable interface."""
+
     pass

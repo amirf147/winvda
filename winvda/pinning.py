@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Amir Farhadi
 """Window and multi-window application pinning with native Task View parity.
 
 This module resolves the sub-AUMID isolation defect where applications hosted
@@ -10,12 +12,19 @@ It implements the native Task View execution path discovered in twinui.pcshell.d
 3. Desktop switch synchronization via sync_pinned_apps().
 """
 
-from contextlib import contextmanager
 import ctypes
+from contextlib import contextmanager
 from ctypes import byref, c_void_p, wintypes
-from typing import Generator, List, Optional, Tuple
-from uuid import UUID
+from typing import Generator, Optional, Tuple
 
+from winvda._vtables import (
+    CLSID_ImmersiveShell,
+    CLSID_VirtualDesktopPinnedApps,
+    IID_IApplicationView,
+    IID_IApplicationViewCollection,
+    IID_IServiceProvider,
+    IID_IVirtualDesktopPinnedApps,
+)
 from winvda._win32 import (
     CLSCTX_LOCAL_SERVER,
     COINIT_MULTITHREADED,
@@ -29,15 +38,7 @@ from winvda._win32 import (
     safe_release,
     user32,
 )
-from winvda._vtables import (
-    CLSID_ImmersiveShell,
-    CLSID_VirtualDesktopPinnedApps,
-    IID_IApplicationView,
-    IID_IApplicationViewCollection,
-    IID_IServiceProvider,
-    IID_IVirtualDesktopPinnedApps,
-)
-from winvda.errors import VdaComError, WindowNotFoundError
+from winvda.errors import WindowNotFoundError
 from winvda.types import WindowView
 
 
@@ -45,7 +46,7 @@ from winvda.types import WindowView
 def transient_pinning_session() -> Generator[Tuple[c_void_p, c_void_p, c_void_p], None, None]:
     """Call-scoped transient session acquiring IServiceProvider, PinnedApps, and ViewCollection."""
     hr_init = ole32.CoInitializeEx(None, COINIT_MULTITHREADED)
-    co_initialized = (hr_init >= 0)
+    co_initialized = hr_init >= 0
 
     p_sp = c_void_p()
     p_pinned = c_void_p()
@@ -61,7 +62,9 @@ def transient_pinning_session() -> Generator[Tuple[c_void_p, c_void_p, c_void_p]
         check_hresult(hr_sp, "CoCreateInstance(CLSID_ImmersiveShell)")
 
         hr_pin = call_vtable(
-            p_sp, 3, HRESULT,
+            p_sp,
+            3,
+            HRESULT,
             [ctypes.POINTER(GUID), ctypes.POINTER(GUID), ctypes.POINTER(c_void_p)],
             byref(CLSID_VirtualDesktopPinnedApps),
             byref(IID_IVirtualDesktopPinnedApps),
@@ -70,7 +73,9 @@ def transient_pinning_session() -> Generator[Tuple[c_void_p, c_void_p, c_void_p]
         check_hresult(hr_pin, "QueryService(IVirtualDesktopPinnedApps)")
 
         hr_avc = call_vtable(
-            p_sp, 3, HRESULT,
+            p_sp,
+            3,
+            HRESULT,
             [ctypes.POINTER(GUID), ctypes.POINTER(GUID), ctypes.POINTER(c_void_p)],
             byref(IID_IApplicationViewCollection),
             byref(IID_IApplicationViewCollection),
@@ -102,13 +107,13 @@ def _get_view_properties(
     hwnd: int,
 ) -> WindowView:
     """Extract metadata properties from an active IApplicationView interface pointer."""
-    view_vt = ctypes.cast(p_view, ctypes.POINTER(ctypes.POINTER(c_void_p))).contents
-
     # Slot 17: GetAppUserModelId(out PWSTR)
     aumid_ptr = wintypes.LPWSTR()
     try:
         hr_aumid = call_vtable(
-            p_view, 17, HRESULT,
+            p_view,
+            17,
+            HRESULT,
             [ctypes.POINTER(wintypes.LPWSTR)],
             byref(aumid_ptr),
         )
@@ -122,7 +127,9 @@ def _get_view_properties(
     # Slot 24: GetVirtualDesktopId(out GUID)
     vd_guid = GUID()
     hr_vd = call_vtable(
-        p_view, 24, HRESULT,
+        p_view,
+        24,
+        HRESULT,
         [ctypes.POINTER(GUID)],
         byref(vd_guid),
     )
@@ -131,9 +138,12 @@ def _get_view_properties(
     # Slot 6 on IVirtualDesktopPinnedApps: IsViewPinned
     is_view_pinned = wintypes.BOOL()
     hr_ivp = call_vtable(
-        p_pinned, 6, HRESULT,
+        p_pinned,
+        6,
+        HRESULT,
         [c_void_p, ctypes.POINTER(wintypes.BOOL)],
-        p_view, byref(is_view_pinned),
+        p_view,
+        byref(is_view_pinned),
     )
     is_pinned = bool(is_view_pinned.value) if hr_ivp == 0 else False
 
@@ -142,9 +152,12 @@ def _get_view_properties(
     if base_app_id:
         c_is_app = wintypes.BOOL()
         hr_iap = call_vtable(
-            p_pinned, 3, HRESULT,
+            p_pinned,
+            3,
+            HRESULT,
             [wintypes.LPCWSTR, ctypes.POINTER(wintypes.BOOL)],
-            base_app_id, byref(c_is_app),
+            base_app_id,
+            byref(c_is_app),
         )
         if hr_iap == 0:
             is_app_pinned = bool(c_is_app.value)
@@ -170,9 +183,12 @@ def get_window_view(hwnd: int) -> WindowView:
     with transient_pinning_session() as (p_sp, p_pinned, p_avc):
         p_view = c_void_p()
         hr_gv = call_vtable(
-            p_avc, 6, HRESULT,  # GetViewForHwnd
+            p_avc,
+            6,
+            HRESULT,  # GetViewForHwnd
             [wintypes.HWND, ctypes.POINTER(c_void_p)],
-            hwnd, byref(p_view),
+            hwnd,
+            byref(p_view),
         )
         if hr_gv != 0 or not p_view:
             raise WindowNotFoundError(f"Window {hwnd:#x} has no managed shell view (HRESULT {hr_gv:#x})")
@@ -196,14 +212,19 @@ def pin_window(hwnd: int) -> None:
     with transient_pinning_session() as (p_sp, p_pinned, p_avc):
         p_view = c_void_p()
         hr_gv = call_vtable(
-            p_avc, 6, HRESULT,  # GetViewForHwnd
+            p_avc,
+            6,
+            HRESULT,  # GetViewForHwnd
             [wintypes.HWND, ctypes.POINTER(c_void_p)],
-            hwnd, byref(p_view),
+            hwnd,
+            byref(p_view),
         )
         check_hresult(hr_gv, "GetViewForHwnd")
         try:
             hr_pin = call_vtable(
-                p_pinned, 7, HRESULT,  # Slot 7: PinView
+                p_pinned,
+                7,
+                HRESULT,  # Slot 7: PinView
                 [c_void_p],
                 p_view,
             )
@@ -220,14 +241,19 @@ def unpin_window(hwnd: int) -> None:
     with transient_pinning_session() as (p_sp, p_pinned, p_avc):
         p_view = c_void_p()
         hr_gv = call_vtable(
-            p_avc, 6, HRESULT,  # GetViewForHwnd
+            p_avc,
+            6,
+            HRESULT,  # GetViewForHwnd
             [wintypes.HWND, ctypes.POINTER(c_void_p)],
-            hwnd, byref(p_view),
+            hwnd,
+            byref(p_view),
         )
         check_hresult(hr_gv, "GetViewForHwnd")
         try:
             hr_unpin = call_vtable(
-                p_pinned, 8, HRESULT,  # Slot 8: UnpinView
+                p_pinned,
+                8,
+                HRESULT,  # Slot 8: UnpinView
                 [c_void_p],
                 p_view,
             )
@@ -264,7 +290,9 @@ def pin_app(hwnd: int) -> None:
         if base_id:
             # 1. Register canonical package identity
             hr_pin = call_vtable(
-                p_pinned, 4, HRESULT,  # Slot 4: PinAppID
+                p_pinned,
+                4,
+                HRESULT,  # Slot 4: PinAppID
                 [wintypes.LPCWSTR],
                 base_id,
             )
@@ -273,7 +301,9 @@ def pin_app(hwnd: int) -> None:
             # 2. Iterate all views by z-order to pin active sibling sub-views
             p_array = c_void_p()
             hr_z = call_vtable(
-                p_avc, 4, HRESULT,  # GetViewsByZOrder
+                p_avc,
+                4,
+                HRESULT,  # GetViewsByZOrder
                 [ctypes.POINTER(c_void_p)],
                 byref(p_array),
             )
@@ -281,22 +311,34 @@ def pin_app(hwnd: int) -> None:
                 try:
                     total_views = wintypes.UINT()
                     call_vtable(
-                        p_array, 3, HRESULT,
+                        p_array,
+                        3,
+                        HRESULT,
                         [ctypes.POINTER(wintypes.UINT)],
                         byref(total_views),
                     )
                     for i in range(total_views.value):
                         p_sub_view = c_void_p()
                         hr_get = call_vtable(
-                            p_array, 4, HRESULT,
-                            [wintypes.UINT, ctypes.POINTER(GUID), ctypes.POINTER(c_void_p)],
-                            i, byref(IID_IApplicationView), byref(p_sub_view),
+                            p_array,
+                            4,
+                            HRESULT,
+                            [
+                                wintypes.UINT,
+                                ctypes.POINTER(GUID),
+                                ctypes.POINTER(c_void_p),
+                            ],
+                            i,
+                            byref(IID_IApplicationView),
+                            byref(p_sub_view),
                         )
                         if hr_get == 0 and p_sub_view:
                             try:
                                 aumid_ptr = wintypes.LPWSTR()
                                 hr_id = call_vtable(
-                                    p_sub_view, 17, HRESULT,
+                                    p_sub_view,
+                                    17,
+                                    HRESULT,
                                     [ctypes.POINTER(wintypes.LPWSTR)],
                                     byref(aumid_ptr),
                                 )
@@ -322,7 +364,9 @@ def unpin_app(hwnd: int) -> None:
     with transient_pinning_session() as (p_sp, p_pinned, p_avc):
         if base_id:
             hr_unpin = call_vtable(
-                p_pinned, 5, HRESULT,  # Slot 5: UnpinAppID
+                p_pinned,
+                5,
+                HRESULT,  # Slot 5: UnpinAppID
                 [wintypes.LPCWSTR],
                 base_id,
             )
@@ -331,26 +375,44 @@ def unpin_app(hwnd: int) -> None:
             # Unpin sibling sub-views
             p_array = c_void_p()
             hr_z = call_vtable(
-                p_avc, 4, HRESULT,
+                p_avc,
+                4,
+                HRESULT,
                 [ctypes.POINTER(c_void_p)],
                 byref(p_array),
             )
             if hr_z == 0 and p_array:
                 try:
                     total_views = wintypes.UINT()
-                    call_vtable(p_array, 3, HRESULT, [ctypes.POINTER(wintypes.UINT)], byref(total_views))
+                    call_vtable(
+                        p_array,
+                        3,
+                        HRESULT,
+                        [ctypes.POINTER(wintypes.UINT)],
+                        byref(total_views),
+                    )
                     for i in range(total_views.value):
                         p_sub_view = c_void_p()
                         hr_get = call_vtable(
-                            p_array, 4, HRESULT,
-                            [wintypes.UINT, ctypes.POINTER(GUID), ctypes.POINTER(c_void_p)],
-                            i, byref(IID_IApplicationView), byref(p_sub_view),
+                            p_array,
+                            4,
+                            HRESULT,
+                            [
+                                wintypes.UINT,
+                                ctypes.POINTER(GUID),
+                                ctypes.POINTER(c_void_p),
+                            ],
+                            i,
+                            byref(IID_IApplicationView),
+                            byref(p_sub_view),
                         )
                         if hr_get == 0 and p_sub_view:
                             try:
                                 aumid_ptr = wintypes.LPWSTR()
                                 hr_id = call_vtable(
-                                    p_sub_view, 17, HRESULT,
+                                    p_sub_view,
+                                    17,
+                                    HRESULT,
                                     [ctypes.POINTER(wintypes.LPWSTR)],
                                     byref(aumid_ptr),
                                 )
@@ -385,7 +447,9 @@ def sync_pinned_apps() -> int:
     with transient_pinning_session() as (p_sp, p_pinned, p_avc):
         p_array = c_void_p()
         hr_z = call_vtable(
-            p_avc, 4, HRESULT,
+            p_avc,
+            4,
+            HRESULT,
             [ctypes.POINTER(c_void_p)],
             byref(p_array),
         )
@@ -398,22 +462,35 @@ def sync_pinned_apps() -> int:
             for i in range(total_views.value):
                 p_sub_view = c_void_p()
                 hr_get = call_vtable(
-                    p_array, 4, HRESULT,
+                    p_array,
+                    4,
+                    HRESULT,
                     [wintypes.UINT, ctypes.POINTER(GUID), ctypes.POINTER(c_void_p)],
-                    i, byref(IID_IApplicationView), byref(p_sub_view),
+                    i,
+                    byref(IID_IApplicationView),
+                    byref(p_sub_view),
                 )
                 if hr_get == 0 and p_sub_view:
                     try:
                         # Check if view itself is pinned
                         is_vp = wintypes.BOOL()
-                        call_vtable(p_pinned, 6, HRESULT, [c_void_p, ctypes.POINTER(wintypes.BOOL)], p_sub_view, byref(is_vp))
+                        call_vtable(
+                            p_pinned,
+                            6,
+                            HRESULT,
+                            [c_void_p, ctypes.POINTER(wintypes.BOOL)],
+                            p_sub_view,
+                            byref(is_vp),
+                        )
                         if is_vp.value:
                             continue
 
                         # Check if base app is pinned
                         aumid_ptr = wintypes.LPWSTR()
                         hr_id = call_vtable(
-                            p_sub_view, 17, HRESULT,
+                            p_sub_view,
+                            17,
+                            HRESULT,
                             [ctypes.POINTER(wintypes.LPWSTR)],
                             byref(aumid_ptr),
                         )
@@ -425,9 +502,12 @@ def sync_pinned_apps() -> int:
                         if base_id:
                             is_ap = wintypes.BOOL()
                             hr_check = call_vtable(
-                                p_pinned, 3, HRESULT,
+                                p_pinned,
+                                3,
+                                HRESULT,
                                 [wintypes.LPCWSTR, ctypes.POINTER(wintypes.BOOL)],
-                                base_id, byref(is_ap),
+                                base_id,
+                                byref(is_ap),
                             )
                             if hr_check == 0 and is_ap.value:
                                 call_vtable(p_pinned, 7, HRESULT, [c_void_p], p_sub_view)

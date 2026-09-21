@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Amir Farhadi
 """Diagnostic command-line interface for winvda."""
 
 import argparse
@@ -82,6 +84,7 @@ def cmd_sync(args: argparse.Namespace) -> int:
 
 def _resolve_hwnd(args: argparse.Namespace) -> int:
     import time
+
     if getattr(args, "delay", 0) and args.delay > 0:
         print(f"Waiting {args.delay:.1f}s before capturing foreground window...")
         time.sleep(args.delay)
@@ -105,6 +108,7 @@ def _resolve_hwnd(args: argparse.Namespace) -> int:
 
 def cmd_pin_window(args: argparse.Namespace) -> int:
     from winvda._win32 import get_window_title
+
     hwnd = _resolve_hwnd(args)
     title = get_window_title(hwnd)
     winvda.pin_window(hwnd)
@@ -115,6 +119,7 @@ def cmd_pin_window(args: argparse.Namespace) -> int:
 
 def cmd_unpin_window(args: argparse.Namespace) -> int:
     from winvda._win32 import get_window_title
+
     hwnd = _resolve_hwnd(args)
     title = get_window_title(hwnd)
     winvda.unpin_window(hwnd)
@@ -125,6 +130,7 @@ def cmd_unpin_window(args: argparse.Namespace) -> int:
 
 def cmd_pin_app(args: argparse.Namespace) -> int:
     from winvda._win32 import get_window_title
+
     hwnd = _resolve_hwnd(args)
     title = get_window_title(hwnd)
     winvda.pin_app(hwnd)
@@ -135,13 +141,13 @@ def cmd_pin_app(args: argparse.Namespace) -> int:
 
 def cmd_unpin_app(args: argparse.Namespace) -> int:
     from winvda._win32 import get_window_title
+
     hwnd = _resolve_hwnd(args)
     title = get_window_title(hwnd)
     winvda.unpin_app(hwnd)
     label = f"'{title}' ({hwnd:#x})" if title else f"HWND {hwnd:#x}"
     print(f"Unpinned application {label} from all virtual desktops.")
     return 0
-
 
 
 def main(argv: List[str] = None) -> int:
@@ -178,27 +184,79 @@ def main(argv: List[str] = None) -> int:
     sub_sync.set_defaults(func=cmd_sync)
 
     # pin-window
-    sub_pin_w = subparsers.add_parser("pin-window", help="Pin a window across all virtual desktops (defaults to foreground window)")
-    sub_pin_w.add_argument("--hwnd", "-w", help="Window handle in hex or decimal (defaults to active foreground window)")
-    sub_pin_w.add_argument("--delay", "-d", type=float, default=0.0, help="Seconds to wait before capturing active foreground window")
+    sub_pin_w = subparsers.add_parser(
+        "pin-window",
+        help="Pin a window across all virtual desktops (defaults to foreground window)",
+    )
+    sub_pin_w.add_argument(
+        "--hwnd",
+        "-w",
+        help="Window handle in hex or decimal (defaults to active foreground window)",
+    )
+    sub_pin_w.add_argument(
+        "--delay",
+        "-d",
+        type=float,
+        default=0.0,
+        help="Seconds to wait before capturing active foreground window",
+    )
     sub_pin_w.set_defaults(func=cmd_pin_window)
 
     # unpin-window
-    sub_unpin_w = subparsers.add_parser("unpin-window", help="Unpin a window from all virtual desktops (defaults to foreground window)")
-    sub_unpin_w.add_argument("--hwnd", "-w", help="Window handle in hex or decimal (defaults to active foreground window)")
-    sub_unpin_w.add_argument("--delay", "-d", type=float, default=0.0, help="Seconds to wait before capturing active foreground window")
+    sub_unpin_w = subparsers.add_parser(
+        "unpin-window",
+        help="Unpin a window from all virtual desktops (defaults to foreground window)",
+    )
+    sub_unpin_w.add_argument(
+        "--hwnd",
+        "-w",
+        help="Window handle in hex or decimal (defaults to active foreground window)",
+    )
+    sub_unpin_w.add_argument(
+        "--delay",
+        "-d",
+        type=float,
+        default=0.0,
+        help="Seconds to wait before capturing active foreground window",
+    )
     sub_unpin_w.set_defaults(func=cmd_unpin_window)
 
     # pin-app
-    sub_pin_a = subparsers.add_parser("pin-app", help="Pin an application across all virtual desktops (defaults to foreground window)")
-    sub_pin_a.add_argument("--hwnd", "-w", help="Window handle in hex or decimal (defaults to active foreground window)")
-    sub_pin_a.add_argument("--delay", "-d", type=float, default=0.0, help="Seconds to wait before capturing active foreground window")
+    sub_pin_a = subparsers.add_parser(
+        "pin-app",
+        help="Pin an application across all virtual desktops (defaults to foreground window)",
+    )
+    sub_pin_a.add_argument(
+        "--hwnd",
+        "-w",
+        help="Window handle in hex or decimal (defaults to active foreground window)",
+    )
+    sub_pin_a.add_argument(
+        "--delay",
+        "-d",
+        type=float,
+        default=0.0,
+        help="Seconds to wait before capturing active foreground window",
+    )
     sub_pin_a.set_defaults(func=cmd_pin_app)
 
     # unpin-app
-    sub_unpin_a = subparsers.add_parser("unpin-app", help="Unpin an application from all virtual desktops (defaults to foreground window)")
-    sub_unpin_a.add_argument("--hwnd", "-w", help="Window handle in hex or decimal (defaults to active foreground window)")
-    sub_unpin_a.add_argument("--delay", "-d", type=float, default=0.0, help="Seconds to wait before capturing active foreground window")
+    sub_unpin_a = subparsers.add_parser(
+        "unpin-app",
+        help="Unpin an application from all virtual desktops (defaults to foreground window)",
+    )
+    sub_unpin_a.add_argument(
+        "--hwnd",
+        "-w",
+        help="Window handle in hex or decimal (defaults to active foreground window)",
+    )
+    sub_unpin_a.add_argument(
+        "--delay",
+        "-d",
+        type=float,
+        default=0.0,
+        help="Seconds to wait before capturing active foreground window",
+    )
     sub_unpin_a.set_defaults(func=cmd_unpin_app)
 
     if not argv:

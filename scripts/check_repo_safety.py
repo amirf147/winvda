@@ -1,0 +1,196 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Amir Farhadi
+"""Repository Safety, Secret & Path Hygiene Checker for winvda."""
+
+import getpass
+import os
+import re
+import sys
+from pathlib import Path
+
+# Directory to scan (root of the repo)
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# Ignore directories
+IGNORED_DIRS = {
+    ".git",
+    ".vs",
+    ".vscode",
+    "node_modules",
+    ".ruff_cache",
+    ".idea",
+    "__pycache__",
+    ".pytest_cache",
+    ".venv",
+    "venv",
+    "dist",
+    "build",
+    "external",
+}
+
+# Ignore file extensions / binary files
+IGNORED_EXTENSIONS = {
+    ".dll",
+    ".exe",
+    ".pdb",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".mp4",
+    ".ico",
+    ".svg",
+    ".pyc",
+    ".pyo",
+    ".whl",
+    ".tar.gz",
+}
+
+IGNORED_FILES = {
+    ".test_cache.json",
+}
+
+# Regex patterns for private path hygiene (Windows user directories, Unix home directories, personal profiles)
+WINDOWS_USER_PATH_RE = re.compile(
+    r"[A-Za-z]:(?:\\{1,4}|/)+(?:Users|Documents and Settings)(?:\\{1,4}|/)+",
+    re.IGNORECASE,
+)
+USER_HOME_PATH_RE = re.compile(
+    r"(?:[A-Za-z]:(?:\\{1,4}|/)+|/|\\{1,4})(?:Users|home|Documents and Settings)"
+    r"(?:\\{1,4}|/)+[A-Za-z0-9_.-]+(?:\\{1,4}|/)+",
+    re.IGNORECASE,
+)
+UNIX_USER_PATH_RE = re.compile(r"^/(?:Users|home)/[A-Za-z0-9_.-]+(?:/|$)", re.IGNORECASE)
+ENV_VAR_PATH_RE = re.compile(r"%(?:USERPROFILE|USERNAME)%", re.IGNORECASE)
+USER_FILE_URI_RE = re.compile(
+    r"file:///(?:[A-Za-z]:/(?:Users|Documents and Settings|home)|(?:Users|home)/)",
+    re.IGNORECASE,
+)
+
+# Dynamic runtime detection for active local environment username
+try:
+    CURRENT_USER = getpass.getuser()
+    if (
+        CURRENT_USER
+        and len(CURRENT_USER) > 1
+        and CURRENT_USER.lower()
+        not in {
+            "root",
+            "runner",
+            "github",
+            "administrator",
+            "system",
+            "runneradmin",
+        }
+    ):
+        ACTIVE_USER_PATH_RE = re.compile(
+            rf"(?:\\{{1,4}}|/)+{re.escape(CURRENT_USER)}(?:\\{{1,4}}|/)+",
+            re.IGNORECASE,
+        )
+    else:
+        ACTIVE_USER_PATH_RE = None
+except Exception:
+    ACTIVE_USER_PATH_RE = None
+
+# Secret & credential token patterns
+SECRET_PATTERNS = [
+    (re.compile(r"-----BEGIN (?:RSA|OPENSSH|EC|DSA|PGP)?\s?PRIVATE KEY-----"), "Private Key Header"),
+    (re.compile(r"\b(?:sk|pk)_(?:live|test)_[0-9a-zA-Z]{24,}\b"), "API Key Token"),
+    (re.compile(r"\bghp_[0-9a-zA-Z]{36}\b"), "GitHub Personal Access Token"),
+    (re.compile(r"\beyJ[a-zA-Z0-9_\-]{20,}\.[a-zA-Z0-9_\-]{20,}\.[a-zA-Z0-9_\-]{20,}\b"), "JWT Token"),
+    (
+        re.compile(
+            r"\b[A-Za-z0-9._%+-]+@(?!(?:example\.com|users\.noreply\.github\.com|domain\.com|gmail\.com)\b)[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b",
+            re.IGNORECASE,
+        ),
+        "Plain Email Address in Content",
+    ),
+]
+
+# Required headers for source files
+SPDX_PY = "# SPDX-License-Identifier: Apache-2.0"
+
+
+def check_file(file_path: Path, rel_path: str) -> list[str]:
+    violations = []
+    if rel_path == "scripts/check_repo_safety.py":
+        return violations
+
+    try:
+        content = file_path.read_text(encoding="utf-8", errors="ignore")
+        lines = content.splitlines()
+
+        # Check SPDX headers for Python source code
+        if file_path.suffix == ".py" and SPDX_PY not in content:
+            violations.append(f"{rel_path}: Missing SPDX Apache-2.0 header ('{SPDX_PY}')")
+
+        for line_no, line in enumerate(lines, start=1):
+            # Check for hardcoded machine and personal user paths
+            if WINDOWS_USER_PATH_RE.search(line):
+                violations.append(f"{rel_path}:{line_no}: Windows user directory path leak: {line.strip()[:100]}")
+            if USER_HOME_PATH_RE.search(line):
+                violations.append(f"{rel_path}:{line_no}: User profile directory path: {line.strip()[:100]}")
+            if UNIX_USER_PATH_RE.search(line):
+                violations.append(f"{rel_path}:{line_no}: Unix user home directory path: {line.strip()[:100]}")
+            if ACTIVE_USER_PATH_RE and ACTIVE_USER_PATH_RE.search(line):
+                violations.append(f"{rel_path}:{line_no}: Active OS user path component: {line.strip()[:100]}")
+            if ENV_VAR_PATH_RE.search(line):
+                violations.append(
+                    f"{rel_path}:{line_no}: Personal user profile environment variable: {line.strip()[:100]}"
+                )
+            if USER_FILE_URI_RE.search(line):
+                violations.append(f"{rel_path}:{line_no}: Local user file URI (file:///): {line.strip()[:100]}")
+
+            # Check secrets
+            for pattern, desc in SECRET_PATTERNS:
+                if pattern.search(line):
+                    violations.append(
+                        f"{rel_path}:{line_no}: Potential secret/credential ({desc}): {line.strip()[:60]}..."
+                    )
+
+    except Exception as ex:
+        violations.append(f"{rel_path}: Failed to read file ({ex})")
+
+    return violations
+
+
+def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+    print(f"Scanning repository for safety, secrets, and path hygiene: {REPO_ROOT}")
+    all_violations = []
+
+    for root, dirs, files in os.walk(REPO_ROOT):
+        dirs[:] = [d for d in dirs if d not in IGNORED_DIRS]
+
+        for file in files:
+            if file in IGNORED_FILES:
+                continue
+
+            file_path = Path(root) / file
+            if file_path.suffix.lower() in IGNORED_EXTENSIONS:
+                continue
+
+            rel_path = file_path.relative_to(REPO_ROOT).as_posix()
+            violations = check_file(file_path, rel_path)
+            all_violations.extend(violations)
+
+    if all_violations:
+        print(f"\n[FAILED] Found {len(all_violations)} hygiene violation(s):\n")
+        for v in all_violations:
+            print(f"  - {v}")
+        print("\nPlease resolve the above issues before committing.")
+        return 1
+
+    print("\n[PASSED] Zero hardcoded absolute paths, secrets, or header issues detected.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

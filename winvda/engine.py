@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Amir Farhadi
 """Call-scoped transient MTA execution engine for Windows Virtual Desktops.
 
 This module provides the core desktop management functions. Every function
@@ -6,13 +8,19 @@ operation, and immediately releases all pointers. No COM interface pointers
 are ever persisted across function calls.
 """
 
-from contextlib import contextmanager
 import ctypes
-from ctypes import byref, c_long, c_void_p, wintypes
+from contextlib import contextmanager
+from ctypes import byref, c_void_p, wintypes
 from typing import Generator, List, Optional, Tuple, Union
-import uuid
 from uuid import UUID
 
+from winvda._vtables import (
+    CLSID_ImmersiveShell,
+    CLSID_VirtualDesktopManagerInternal,
+    IID_IApplicationViewCollection,
+    IID_IServiceProvider,
+    get_active_build_config,
+)
 from winvda._win32 import (
     CLSCTX_LOCAL_SERVER,
     COINIT_MULTITHREADED,
@@ -27,14 +35,7 @@ from winvda._win32 import (
     read_hstring,
     safe_release,
 )
-from winvda._vtables import (
-    CLSID_ImmersiveShell,
-    CLSID_VirtualDesktopManagerInternal,
-    IID_IApplicationViewCollection,
-    IID_IServiceProvider,
-    get_active_build_config,
-)
-from winvda.errors import DesktopNotFoundError, VdaComError
+from winvda.errors import DesktopNotFoundError, UnsupportedBuildError, VdaComError
 from winvda.types import VirtualDesktop
 
 
@@ -49,7 +50,7 @@ def transient_mta_session() -> Generator[Tuple[c_void_p, c_void_p], None, None]:
     config = get_active_build_config()
     hr_init = ole32.CoInitializeEx(None, COINIT_MULTITHREADED)
     # S_FALSE (0x1) means already initialized on this thread, which is fine
-    co_initialized = (hr_init >= 0)
+    co_initialized = hr_init >= 0
 
     p_sp = c_void_p()
     p_vdm = c_void_p()
@@ -91,33 +92,44 @@ def get_desktops() -> List[VirtualDesktop]:
         p_array = c_void_p()
         if config.get_desktops_takes_hwnd:
             hr_gd = call_vtable(
-                p_vdm, config.slot_get_desktops, HRESULT,
+                p_vdm,
+                config.slot_get_desktops,
+                HRESULT,
                 [wintypes.HWND, ctypes.POINTER(c_void_p)],
-                0, byref(p_array)
+                0,
+                byref(p_array),
             )
         else:
             hr_gd = call_vtable(
-                p_vdm, config.slot_get_desktops, HRESULT,
+                p_vdm,
+                config.slot_get_desktops,
+                HRESULT,
                 [ctypes.POINTER(c_void_p)],
-                byref(p_array)
+                byref(p_array),
             )
         check_hresult(hr_gd, "IVirtualDesktopManagerInternal::GetDesktops")
 
         try:
             arr_len = wintypes.UINT()
             hr_len = call_vtable(
-                p_array, 3, HRESULT,  # IObjectArray::GetCount
+                p_array,
+                3,
+                HRESULT,  # IObjectArray::GetCount
                 [ctypes.POINTER(wintypes.UINT)],
-                byref(arr_len)
+                byref(arr_len),
             )
             check_hresult(hr_len, "IObjectArray::GetCount")
 
             for i in range(arr_len.value):
                 p_vd = c_void_p()
                 hr_get = call_vtable(
-                    p_array, 4, HRESULT,  # IObjectArray::GetAt
+                    p_array,
+                    4,
+                    HRESULT,  # IObjectArray::GetAt
                     [wintypes.UINT, ctypes.POINTER(GUID), ctypes.POINTER(c_void_p)],
-                    i, byref(config.desktop_iid), byref(p_vd)
+                    i,
+                    byref(config.desktop_iid),
+                    byref(p_vd),
                 )
                 if hr_get != 0 or not p_vd:
                     continue
@@ -126,9 +138,11 @@ def get_desktops() -> List[VirtualDesktop]:
                     # GetId
                     c_guid = GUID()
                     hr_id = call_vtable(
-                        p_vd, config.slot_vd_get_id, HRESULT,
+                        p_vd,
+                        config.slot_vd_get_id,
+                        HRESULT,
                         [ctypes.POINTER(GUID)],
-                        byref(c_guid)
+                        byref(c_guid),
                     )
                     check_hresult(hr_id, "IVirtualDesktop::GetId")
                     d_id = guid_to_py_uuid(c_guid)
@@ -138,9 +152,11 @@ def get_desktops() -> List[VirtualDesktop]:
                     if config.slot_vd_get_name is not None:
                         hstr = c_void_p()
                         hr_name = call_vtable(
-                            p_vd, config.slot_vd_get_name, HRESULT,
+                            p_vd,
+                            config.slot_vd_get_name,
+                            HRESULT,
                             [ctypes.POINTER(c_void_p)],
-                            byref(hstr)
+                            byref(hstr),
                         )
                         if hr_name == 0 and hstr:
                             d_name = read_hstring(hstr)
@@ -164,24 +180,31 @@ def get_current_desktop() -> VirtualDesktop:
         p_cur = c_void_p()
         if config.get_current_takes_hwnd:
             hr_cur = call_vtable(
-                p_vdm, config.slot_get_current_desktop, HRESULT,
+                p_vdm,
+                config.slot_get_current_desktop,
+                HRESULT,
                 [wintypes.HWND, ctypes.POINTER(c_void_p)],
-                0, byref(p_cur)
+                0,
+                byref(p_cur),
             )
         else:
             hr_cur = call_vtable(
-                p_vdm, config.slot_get_current_desktop, HRESULT,
+                p_vdm,
+                config.slot_get_current_desktop,
+                HRESULT,
                 [ctypes.POINTER(c_void_p)],
-                byref(p_cur)
+                byref(p_cur),
             )
         check_hresult(hr_cur, "IVirtualDesktopManagerInternal::GetCurrentDesktop")
 
         try:
             c_guid = GUID()
             hr_id = call_vtable(
-                p_cur, config.slot_vd_get_id, HRESULT,
+                p_cur,
+                config.slot_vd_get_id,
+                HRESULT,
                 [ctypes.POINTER(GUID)],
-                byref(c_guid)
+                byref(c_guid),
             )
             check_hresult(hr_id, "IVirtualDesktop::GetId")
             cur_id = guid_to_py_uuid(c_guid)
@@ -231,9 +254,12 @@ def switch_desktop(target: Union[VirtualDesktop, UUID, int, str]) -> None:
         p_target_vd = c_void_p()
         target_guid = py_uuid_to_guid(target_id)
         hr_find = call_vtable(
-            p_vdm, config.slot_find_desktop, HRESULT,
+            p_vdm,
+            config.slot_find_desktop,
+            HRESULT,
             [ctypes.POINTER(GUID), ctypes.POINTER(c_void_p)],
-            byref(target_guid), byref(p_target_vd)
+            byref(target_guid),
+            byref(p_target_vd),
         )
         check_hresult(hr_find, "IVirtualDesktopManagerInternal::FindDesktop")
         if not p_target_vd:
@@ -242,16 +268,15 @@ def switch_desktop(target: Union[VirtualDesktop, UUID, int, str]) -> None:
         try:
             if config.switch_desktop_takes_hwnd:
                 hr_switch = call_vtable(
-                    p_vdm, config.slot_switch_desktop, HRESULT,
+                    p_vdm,
+                    config.slot_switch_desktop,
+                    HRESULT,
                     [wintypes.HWND, c_void_p],
-                    0, p_target_vd
+                    0,
+                    p_target_vd,
                 )
             else:
-                hr_switch = call_vtable(
-                    p_vdm, config.slot_switch_desktop, HRESULT,
-                    [c_void_p],
-                    p_target_vd
-                )
+                hr_switch = call_vtable(p_vdm, config.slot_switch_desktop, HRESULT, [c_void_p], p_target_vd)
             check_hresult(hr_switch, "IVirtualDesktopManagerInternal::SwitchDesktop")
         finally:
             safe_release(p_target_vd)
@@ -265,24 +290,31 @@ def create_desktop(name: Optional[str] = None) -> VirtualDesktop:
         p_new_vd = c_void_p()
         if config.create_desktop_takes_hwnd:
             hr_create = call_vtable(
-                p_vdm, config.slot_create_desktop, HRESULT,
+                p_vdm,
+                config.slot_create_desktop,
+                HRESULT,
                 [wintypes.HWND, ctypes.POINTER(c_void_p)],
-                0, byref(p_new_vd)
+                0,
+                byref(p_new_vd),
             )
         else:
             hr_create = call_vtable(
-                p_vdm, config.slot_create_desktop, HRESULT,
+                p_vdm,
+                config.slot_create_desktop,
+                HRESULT,
                 [ctypes.POINTER(c_void_p)],
-                byref(p_new_vd)
+                byref(p_new_vd),
             )
         check_hresult(hr_create, "IVirtualDesktopManagerInternal::CreateDesktopW")
 
         try:
             c_guid = GUID()
             hr_id = call_vtable(
-                p_new_vd, config.slot_vd_get_id, HRESULT,
+                p_new_vd,
+                config.slot_vd_get_id,
+                HRESULT,
                 [ctypes.POINTER(GUID)],
-                byref(c_guid)
+                byref(c_guid),
             )
             check_hresult(hr_id, "IVirtualDesktop::GetId")
             new_id = guid_to_py_uuid(c_guid)
@@ -291,9 +323,12 @@ def create_desktop(name: Optional[str] = None) -> VirtualDesktop:
                 hstr = create_hstring(name)
                 try:
                     hr_name = call_vtable(
-                        p_vdm, config.slot_set_name, HRESULT,
+                        p_vdm,
+                        config.slot_set_name,
+                        HRESULT,
                         [c_void_p, c_void_p],
-                        p_new_vd, hstr
+                        p_new_vd,
+                        hstr,
                     )
                     check_hresult(hr_name, "IVirtualDesktopManagerInternal::SetName")
                 finally:
@@ -338,25 +373,34 @@ def remove_desktop(
 
         g_destroy = py_uuid_to_guid(target_id)
         hr_f1 = call_vtable(
-            p_vdm, config.slot_find_desktop, HRESULT,
+            p_vdm,
+            config.slot_find_desktop,
+            HRESULT,
             [ctypes.POINTER(GUID), ctypes.POINTER(c_void_p)],
-            byref(g_destroy), byref(p_destroy)
+            byref(g_destroy),
+            byref(p_destroy),
         )
         check_hresult(hr_f1, "FindDesktop(destroy)")
 
         g_fallback = py_uuid_to_guid(fallback_id)
         hr_f2 = call_vtable(
-            p_vdm, config.slot_find_desktop, HRESULT,
+            p_vdm,
+            config.slot_find_desktop,
+            HRESULT,
             [ctypes.POINTER(GUID), ctypes.POINTER(c_void_p)],
-            byref(g_fallback), byref(p_fallback)
+            byref(g_fallback),
+            byref(p_fallback),
         )
         check_hresult(hr_f2, "FindDesktop(fallback)")
 
         try:
             hr_rem = call_vtable(
-                p_vdm, config.slot_remove_desktop, HRESULT,
+                p_vdm,
+                config.slot_remove_desktop,
+                HRESULT,
                 [c_void_p, c_void_p],
-                p_destroy, p_fallback
+                p_destroy,
+                p_fallback,
             )
             check_hresult(hr_rem, "IVirtualDesktopManagerInternal::RemoveDesktop")
         finally:
@@ -375,19 +419,18 @@ def set_desktop_name(target: Union[VirtualDesktop, UUID, int, str], name: str) -
         p_vd = c_void_p()
         g_target = py_uuid_to_guid(target_id)
         hr_find = call_vtable(
-            p_vdm, config.slot_find_desktop, HRESULT,
+            p_vdm,
+            config.slot_find_desktop,
+            HRESULT,
             [ctypes.POINTER(GUID), ctypes.POINTER(c_void_p)],
-            byref(g_target), byref(p_vd)
+            byref(g_target),
+            byref(p_vd),
         )
         check_hresult(hr_find, "FindDesktop")
 
         try:
             hstr = create_hstring(name)
-            hr_set = call_vtable(
-                p_vdm, config.slot_set_name, HRESULT,
-                [c_void_p, c_void_p],
-                p_vd, hstr
-            )
+            hr_set = call_vtable(p_vdm, config.slot_set_name, HRESULT, [c_void_p, c_void_p], p_vd, hstr)
             check_hresult(hr_set, "IVirtualDesktopManagerInternal::SetName")
         finally:
             safe_release(p_vd)
@@ -402,7 +445,9 @@ def move_window_to_desktop(hwnd: int, target: Union[VirtualDesktop, UUID, int, s
         # Query IApplicationViewCollection
         p_avc = c_void_p()
         hr_avc = call_vtable(
-            p_sp, 3, HRESULT,
+            p_sp,
+            3,
+            HRESULT,
             [ctypes.POINTER(GUID), ctypes.POINTER(GUID), ctypes.POINTER(c_void_p)],
             byref(IID_IApplicationViewCollection),
             byref(IID_IApplicationViewCollection),
@@ -415,24 +460,33 @@ def move_window_to_desktop(hwnd: int, target: Union[VirtualDesktop, UUID, int, s
         try:
             # Slot 6: GetViewForHwnd
             hr_gv = call_vtable(
-                p_avc, 6, HRESULT,
+                p_avc,
+                6,
+                HRESULT,
                 [wintypes.HWND, ctypes.POINTER(c_void_p)],
-                hwnd, byref(p_view)
+                hwnd,
+                byref(p_view),
             )
             check_hresult(hr_gv, "IApplicationViewCollection::GetViewForHwnd")
 
             g_target = py_uuid_to_guid(target_id)
             hr_find = call_vtable(
-                p_vdm, config.slot_find_desktop, HRESULT,
+                p_vdm,
+                config.slot_find_desktop,
+                HRESULT,
                 [ctypes.POINTER(GUID), ctypes.POINTER(c_void_p)],
-                byref(g_target), byref(p_vd)
+                byref(g_target),
+                byref(p_vd),
             )
             check_hresult(hr_find, "FindDesktop")
 
             hr_move = call_vtable(
-                p_vdm, config.slot_move_view_to_desktop, HRESULT,
+                p_vdm,
+                config.slot_move_view_to_desktop,
+                HRESULT,
                 [c_void_p, c_void_p],
-                p_view, p_vd
+                p_view,
+                p_vd,
             )
             check_hresult(hr_move, "IVirtualDesktopManagerInternal::MoveViewToDesktop")
         finally:

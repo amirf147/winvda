@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Amir Farhadi
 """Immutable domain value objects for winvda.
 
 These models store purely primitive data (UUID, int, str) and hold
@@ -5,7 +7,7 @@ zero COM pointers. They are thread-safe and can be passed across
 apartments or serialized to JSON without risk of RPC staleness.
 """
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from typing import Any, Dict, Optional
 from uuid import UUID
 

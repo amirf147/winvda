@@ -1,9 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Amir Farhadi
 """Curated COM interface identifiers and vtable slot matrices for Windows 10/11."""
 
-from dataclasses import dataclass
 import sys
-from typing import Optional
 import uuid
+from dataclasses import dataclass
+from typing import Optional
 
 from winvda._win32 import GUID, py_uuid_to_guid
 from winvda.errors import UnsupportedBuildError

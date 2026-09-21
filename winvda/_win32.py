@@ -1,12 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Amir Farhadi
 """Low-level Win32 and COM interop bindings via standard library ctypes."""
 
 import ctypes
-from ctypes import byref, c_long, c_ulong, c_void_p, wintypes
-import sys
-from typing import Any, Optional, Tuple
 import uuid
+from ctypes import byref, c_long, c_void_p, wintypes
+from typing import Any, Optional
 
-from winvda.errors import ShellUnavailableError, VdaComError
+from winvda.errors import ShellUnavailableError, VdaComError, VdaError
 
 HRESULT = c_long
 
@@ -61,11 +62,16 @@ if _WindowsDeleteString:
 _WindowsCreateString = getattr(combase, "WindowsCreateString", None)
 if _WindowsCreateString:
     _WindowsCreateString.restype = HRESULT
-    _WindowsCreateString.argtypes = [wintypes.LPCWSTR, wintypes.UINT, ctypes.POINTER(c_void_p)]
+    _WindowsCreateString.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.UINT,
+        ctypes.POINTER(c_void_p),
+    ]
 
 
 class GUID(ctypes.Structure):
     """Win32 GUID representation."""
+
     _fields_ = [
         ("Data1", wintypes.DWORD),
         ("Data2", wintypes.WORD),
@@ -92,7 +98,11 @@ def check_hresult(hr: int, context: Optional[str] = None) -> None:
         return
     unsigned_hr = hr & 0xFFFFFFFF
     if unsigned_hr in SHELL_UNAVAILABLE_HRESULTS:
-        raise ShellUnavailableError(unsigned_hr, "Windows Shell (explorer.exe) is unavailable or restarting", context)
+        raise ShellUnavailableError(
+            unsigned_hr,
+            "Windows Shell (explorer.exe) is unavailable or restarting",
+            context,
+        )
     raise VdaComError(unsigned_hr, "COM call returned error", context)
 
 
@@ -165,4 +175,3 @@ user32.GetForegroundWindow.argtypes = []
 def get_foreground_window() -> int:
     """Retrieve handle to active foreground window via Win32 GetForegroundWindow."""
     return user32.GetForegroundWindow()
-

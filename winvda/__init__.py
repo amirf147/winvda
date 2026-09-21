@@ -1,21 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Amir Farhadi
 """winvda - Hardened, zero-cached-state Virtual Desktop engine for Windows 10 and 11."""
 
 __version__ = "0.1.0"
 __author__ = "Amir Farhadi"
 __license__ = "Apache-2.0"
 
-from winvda.errors import (
-    DesktopNotFoundError,
-    ShellUnavailableError,
-    UnsupportedBuildError,
-    VdaComError,
-    VdaError,
-    WindowNotFoundError,
-)
-from winvda.types import (
-    VirtualDesktop,
-    WindowView,
-)
+from winvda._win32 import get_foreground_window
 from winvda.engine import (
     create_desktop,
     get_current_desktop,
@@ -24,6 +15,14 @@ from winvda.engine import (
     remove_desktop,
     set_desktop_name,
     switch_desktop,
+)
+from winvda.errors import (
+    DesktopNotFoundError,
+    ShellUnavailableError,
+    UnsupportedBuildError,
+    VdaComError,
+    VdaError,
+    WindowNotFoundError,
 )
 from winvda.pinning import (
     get_window_view,
@@ -38,7 +37,10 @@ from winvda.pinning import (
     unpin_app,
     unpin_window,
 )
-from winvda._win32 import get_foreground_window
+from winvda.types import (
+    VirtualDesktop,
+    WindowView,
+)
 
 __all__ = [
     # Metadata
@@ -78,4 +80,3 @@ __all__ = [
     # Utilities
     "get_foreground_window",
 ]
-
