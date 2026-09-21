@@ -25,6 +25,7 @@ class VirtualDesktop:
     number: int
     name: str
 
+
 @dataclass(frozen=True)
 class WindowView:
     hwnd: int
