@@ -44,3 +44,22 @@ def test_live_desktop_create_rename_remove():
     # Remove
     winvda.remove_desktop(new_d.id)
     assert len(winvda.get_desktops()) == initial_count
+
+
+def test_move_window_invalid_hwnd():
+    import pytest
+
+    with pytest.raises(winvda.WindowNotFoundError):
+        winvda.move_window_to_desktop(0xDEADBEEF, 1)
+
+
+def test_hstring_lifecycle():
+    from winvda._win32 import create_hstring, delete_hstring
+
+    # Safe release of null
+    delete_hstring(None)
+
+    # Valid string allocation and release
+    hstr = create_hstring("test_string")
+    assert hstr is not None
+    delete_hstring(hstr)

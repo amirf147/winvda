@@ -29,13 +29,20 @@ from winvda._win32 import (
     call_vtable,
     check_hresult,
     create_hstring,
+    delete_hstring,
     guid_to_py_uuid,
     ole32,
     py_uuid_to_guid,
     read_hstring,
     safe_release,
+    user32,
 )
-from winvda.errors import DesktopNotFoundError, UnsupportedBuildError, VdaComError
+from winvda.errors import (
+    DesktopNotFoundError,
+    UnsupportedBuildError,
+    VdaComError,
+    WindowNotFoundError,
+)
 from winvda.types import VirtualDesktop
 
 
@@ -332,7 +339,7 @@ def create_desktop(name: Optional[str] = None) -> VirtualDesktop:
                     )
                     check_hresult(hr_name, "IVirtualDesktopManagerInternal::SetName")
                 finally:
-                    pass
+                    delete_hstring(hstr)
         finally:
             safe_release(p_new_vd)
 
@@ -430,14 +437,19 @@ def set_desktop_name(target: Union[VirtualDesktop, UUID, int, str], name: str) -
 
         try:
             hstr = create_hstring(name)
-            hr_set = call_vtable(p_vdm, config.slot_set_name, HRESULT, [c_void_p, c_void_p], p_vd, hstr)
-            check_hresult(hr_set, "IVirtualDesktopManagerInternal::SetName")
+            try:
+                hr_set = call_vtable(p_vdm, config.slot_set_name, HRESULT, [c_void_p, c_void_p], p_vd, hstr)
+                check_hresult(hr_set, "IVirtualDesktopManagerInternal::SetName")
+            finally:
+                delete_hstring(hstr)
         finally:
             safe_release(p_vd)
 
 
 def move_window_to_desktop(hwnd: int, target: Union[VirtualDesktop, UUID, int, str]) -> None:
     """Move a specific top-level window to a target virtual desktop."""
+    if not user32.IsWindow(hwnd):
+        raise WindowNotFoundError(f"Invalid or destroyed window handle: {hwnd:#x}")
     target_id = _resolve_target_uuid(target)
     config = get_active_build_config()
 

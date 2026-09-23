@@ -99,9 +99,17 @@ Comprehensive architectural specifications, domain model definitions, error taxo
 
 ---
 
+## Community & Security
+
+* **Contributing**: Development setup, testing workflows, and pull request guidelines are documented in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+* **Security Policy**: Vulnerability disclosure instructions and reporting channels are detailed in [`SECURITY.md`](SECURITY.md).
+
+---
+
 ## License & Prior Art
 
 Distributed under the **Apache License, Version 2.0**. See [`LICENSE.txt`](LICENSE.txt) for details.
 
 See [`ACKNOWLEDGMENTS.md`](ACKNOWLEDGMENTS.md) for full citations of prior art including Michael Roberts (`pyvda`) and Jari Pennanen (`VirtualDesktopAccessor`).
+
 

@@ -155,6 +155,12 @@ def create_hstring(text: str) -> c_void_p:
     return out_hstr
 
 
+def delete_hstring(hstr: Optional[c_void_p]) -> None:
+    """Release an unmanaged Windows HSTRING handle."""
+    if hstr and getattr(hstr, "value", None) and _WindowsDeleteString:
+        _WindowsDeleteString(hstr)
+
+
 def get_window_title(hwnd: int) -> str:
     """Retrieve window title text via Win32 GetWindowTextW."""
     if not user32.IsWindow(hwnd):

@@ -44,6 +44,13 @@ dev = [
     "mypy>=1.0.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/amirf147/winvda"
+Documentation = "https://github.com/amirf147/winvda#readme"
+Repository = "https://github.com/amirf147/winvda.git"
+Issues = "https://github.com/amirf147/winvda/issues"
+Changelog = "https://github.com/amirf147/winvda/releases"
+
 [project.scripts]
 winvda = "winvda.__main__:main"
 

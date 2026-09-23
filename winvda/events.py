@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Amir Farhadi
-"""Decoupled asynchronous event sink for Windows Virtual Desktop notifications."""
+"""Decoupled asynchronous event sink for Windows Virtual Desktop notifications.
+
+Note: This module is an internal prototype scaffold for notification sink
+registration and is not yet part of the stable public winvda API.
+"""
 
 import queue
 import threading
