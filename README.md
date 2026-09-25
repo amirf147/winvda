@@ -94,6 +94,8 @@ winvda pin-app
 
 Windows Virtual Desktop management communicates with `explorer.exe` via out-of-process COM RPC. Standard COM wrappers hold long-lived interface pointers and force Single-Threaded Apartment (STA) modes, leading to process instability. `winvda` uses three structural design patterns to guarantee resilience:
 
+![Virtual Desktop Management: VDA Process Timeline](docs/images/vda-process-timeline.png)
+
 ### 1. Zero-Cached-State Invocation
 `winvda` never persists COM interface pointers in Python instances across calls:
 * Every operation executes inside a call-scoped transient session (< 0.02 ms).
