@@ -6,6 +6,8 @@
 
 > Hardened, zero-cached-state Virtual Desktop engine for Windows 10 and 11.
 
+![WinVDA Architecture Overview](docs/images/winvda-architecture.png)
+
 `winvda` is a lightweight Python library for managing virtual desktops and application pinning on Windows 10 and Windows 11. It is designed specifically for voice control frameworks (Caster, Talon Voice), window managers, and automated desktop environments that require high stability.
 
 ---
@@ -93,8 +95,6 @@ winvda pin-app
 ## Threading Model & COM Apartment Architecture
 
 Windows Virtual Desktop management communicates with `explorer.exe` via out-of-process COM RPC. Standard COM wrappers hold long-lived interface pointers and force Single-Threaded Apartment (STA) modes, leading to process instability. `winvda` uses three structural design patterns to guarantee resilience:
-
-![Virtual Desktop Management: VDA Process Timeline](docs/images/vda-process-timeline.png)
 
 ### 1. Zero-Cached-State Invocation
 `winvda` never persists COM interface pointers in Python instances across calls:
