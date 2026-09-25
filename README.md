@@ -1,5 +1,9 @@
 # winvda
 
+[![PyPI version](https://img.shields.io/pypi/v/winvda.svg)](https://pypi.org/project/winvda/)
+[![Python versions](https://img.shields.io/pypi/pyversions/winvda.svg)](https://pypi.org/project/winvda/)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE.txt)
+
 > Hardened, zero-cached-state Virtual Desktop engine for Windows 10 and 11.
 
 `winvda` is a lightweight Python library for managing virtual desktops and application pinning on Windows 10 and Windows 11. It is designed specifically for voice control frameworks (Caster, Talon Voice), window managers, and automated desktop environments that require high stability.
@@ -15,6 +19,22 @@
 | **Threading & Apartments** | Thread-local manager leaks COM pointers across threads (`RPC_E_WRONG_THREAD`). | **Stateless Value Objects**: Domain objects are frozen dataclasses with zero COM pointers. |
 | **Multi-Window App Pinning** | Fails on secondary Windows Terminal and modern editor windows due to `~Wh~` sub-AUMIDs. | **Task View Parity**: Strips sub-AUMID tokens and pins views individually, matching `twinui.pcshell.dll`. |
 | **Runtime Dependencies** | Requires `comtypes`. | **Zero external dependencies**: Pure standard library `ctypes`. |
+
+---
+
+## Installation
+
+Install from PyPI:
+
+```powershell
+pip install winvda
+```
+
+For local development or running test suites:
+
+```powershell
+pip install "winvda[dev]"
+```
 
 ---
 
@@ -46,26 +66,26 @@ winvda.pin_app(hwnd)
 
 ## Command Line Interface (CLI)
 
-`winvda` includes a diagnostic and automation CLI:
+`winvda` includes a diagnostic and automation CLI, callable directly as `winvda` or via `python -m winvda`:
 
 ```powershell
 # List all desktops and active state
-python -m winvda list
+winvda list
 
 # Switch to desktop 3
-python -m winvda switch 3
+winvda switch 3
 
 # Pin active foreground window (used by background hotkey daemons / shortcuts)
-python -m winvda pin-window
+winvda pin-window
 
 # Pin specific window by HWND (used by scripts / tiling window managers)
-python -m winvda pin-window --hwnd 0x1a2b3c
+winvda pin-window --hwnd 0x1a2b3c
 
 # Wait 2 seconds before capturing foreground window (for interactive terminal use)
-python -m winvda pin-window --delay 2
+winvda pin-window --delay 2
 
 # Pin active application across all desktops
-python -m winvda pin-app
+winvda pin-app
 ```
 
 ---
